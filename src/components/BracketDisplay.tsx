@@ -42,7 +42,7 @@ function EditModal({ match, players, raceTo, onClose, onSave }: EditModalProps) 
     player2: match.player2_score
   });
   const [status, setStatus] = useState(match.status);
-  const [table, setTable] = useState(match.table_number);
+  const [table, setTable] = useState<number | null>(match.table_number);
 
   const getPlayerName = (playerId: string | null) => {
     if (!playerId) return 'TBD';
@@ -113,7 +113,8 @@ function EditModal({ match, players, raceTo, onClose, onSave }: EditModalProps) 
               value={table || ''}
               onChange={(e) => setTable(parseInt(e.target.value) || null)}
               className="w-full p-2 rounded bg-gray-700 border border-gray-600"
-              placeholder="Assign table number"
+              placeholder={match.round === 1 ? 'Assign table number' : 'Will be assigned when match starts'}
+              disabled={match.round !== 1}
             />
           </div>
 
@@ -180,14 +181,14 @@ export default function BracketDisplay({ matches, players, raceTo, onUpdateMatch
     }));
 
   // Calculate dimensions and spacing
-  const matchWidth = 200;
-  const matchHeight = 64;
-  const horizontalGap = 120;
+  const matchWidth = 240;
+  const matchHeight = 80;
+  const horizontalGap = 160;
   const verticalGap = 40;
 
   // Calculate total height needed for the bracket
   const maxMatchesInRound = Math.max(...rounds.map(r => r.matches.length));
-  const totalHeight = maxMatchesInRound * (matchHeight + verticalGap);
+  const totalHeight = maxMatchesInRound * (matchHeight + verticalGap) * 2;
 
   const handleMatchClick = (match: Match) => {
     if (onUpdateMatch) {
@@ -197,20 +198,19 @@ export default function BracketDisplay({ matches, players, raceTo, onUpdateMatch
 
   return (
     <div className="w-full overflow-x-auto bg-gray-900 p-8">
-      <div className="relative flex justify-center min-w-fit" style={{ gap: `${horizontalGap}px` }}>
+      <div className="relative flex items-center justify-center min-w-fit" style={{ gap: `${horizontalGap}px` }}>
         {rounds.map((round, roundIndex) => {
           const matchCount = round.matches.length;
-          const roundHeight = totalHeight;
-          const matchSpacing = roundHeight / matchCount;
+          const roundSpacing = totalHeight / matchCount;
           const nextRoundMatchCount = rounds[roundIndex + 1]?.matches.length || 1;
 
           return (
             <div 
               key={round.round}
-              className="relative flex flex-col items-center"
+              className="relative flex flex-col"
               style={{ 
-                gap: `${verticalGap}px`,
-                minHeight: roundHeight
+                gap: roundSpacing - matchHeight,
+                minHeight: totalHeight
               }}
             >
               {/* Round Label */}
@@ -223,18 +223,18 @@ export default function BracketDisplay({ matches, players, raceTo, onUpdateMatch
               {/* Connector Lines */}
               {roundIndex < rounds.length - 1 && (
                 <svg
-                  className="absolute -right-[121px] top-0 w-[122px]"
+                  className="absolute -right-[161px] top-0 w-[162px]"
                   style={{
-                    height: roundHeight,
+                    height: totalHeight,
                     pointerEvents: 'none'
                   }}
                 >
                   {round.matches.map((match, matchIndex) => {
-                    if (matchIndex % 2 === 0) {
-                      const match1Y = matchIndex * matchSpacing + matchHeight / 2;
-                      const match2Y = (matchIndex + 1) * matchSpacing + matchHeight / 2;
+                    if (matchIndex % 2 === 0 && matchIndex + 1 < round.matches.length) {
+                      const match1Y = matchIndex * roundSpacing + matchHeight / 2;
+                      const match2Y = (matchIndex + 1) * roundSpacing + matchHeight / 2;
                       const nextMatchIndex = Math.floor(matchIndex / 2);
-                      const nextMatchY = nextMatchIndex * (roundHeight / nextRoundMatchCount) + matchHeight / 2;
+                      const nextMatchY = nextMatchIndex * (totalHeight / nextRoundMatchCount) + matchHeight / 2;
 
                       return (
                         <g key={`connector-${match.id}`}>
@@ -247,31 +247,27 @@ export default function BracketDisplay({ matches, players, raceTo, onUpdateMatch
                             stroke="#4B5563"
                             strokeWidth="2"
                           />
-                          {matchIndex + 1 < round.matches.length && (
-                            <line
-                              x1="0"
-                              y1={match2Y}
-                              x2={horizontalGap / 2}
-                              y2={match2Y}
-                              stroke="#4B5563"
-                              strokeWidth="2"
-                            />
-                          )}
+                          <line
+                            x1="0"
+                            y1={match2Y}
+                            x2={horizontalGap / 2}
+                            y2={match2Y}
+                            stroke="#4B5563"
+                            strokeWidth="2"
+                          />
                           {/* Vertical connector */}
-                          {matchIndex + 1 < round.matches.length && (
-                            <line
-                              x1={horizontalGap / 2}
-                              y1={match1Y}
-                              x2={horizontalGap / 2}
-                              y2={match2Y}
-                              stroke="#4B5563"
-                              strokeWidth="2"
-                            />
-                          )}
+                          <line
+                            x1={horizontalGap / 2}
+                            y1={match1Y}
+                            x2={horizontalGap / 2}
+                            y2={match2Y}
+                            stroke="#4B5563"
+                            strokeWidth="2"
+                          />
                           {/* Line to next match */}
                           <line
                             x1={horizontalGap / 2}
-                            y1={(match1Y + (matchIndex + 1 < round.matches.length ? match2Y : match1Y)) / 2}
+                            y1={(match1Y + match2Y) / 2}
                             x2={horizontalGap}
                             y2={nextMatchY}
                             stroke="#4B5563"
@@ -291,16 +287,16 @@ export default function BracketDisplay({ matches, players, raceTo, onUpdateMatch
                   key={match.id}
                   onClick={() => handleMatchClick(match)}
                   className={clsx(
-                    "w-[200px] bg-purple-900/80 rounded overflow-hidden shadow-lg cursor-pointer transition-transform hover:scale-105",
-                    match.status === 'in_progress' && "ring-1 ring-green-500",
-                    match.status === 'completed' && match.winner_id && "ring-1 ring-gray-500"
+                    "w-[240px] bg-purple-900/80 rounded overflow-hidden shadow-lg cursor-pointer transition-transform hover:scale-105",
+                    match.status === 'in_progress' && "ring-2 ring-green-500",
+                    match.status === 'completed' && match.winner_id && "ring-2 ring-gray-500"
                   )}
                   style={{
-                    marginTop: matchIndex === 0 ? matchSpacing / 2 : 0
+                    marginTop: matchIndex === 0 ? roundSpacing / 2 : 0
                   }}
                 >
                   {/* Match Header */}
-                  <div className="px-3 py-1 bg-black/20 flex justify-between items-center text-xs text-gray-300">
+                  <div className="px-4 py-2 bg-black/20 flex justify-between items-center text-xs text-gray-300">
                     <span>Match {match.match_number}</span>
                     {match.table_number && (
                       <span>Table {match.table_number}</span>
@@ -309,21 +305,21 @@ export default function BracketDisplay({ matches, players, raceTo, onUpdateMatch
 
                   {/* Player 1 */}
                   <div className={clsx(
-                    "px-3 py-1.5 flex justify-between items-center",
+                    "px-4 py-2 flex justify-between items-center",
                     match.winner_id === match.player1_id && "bg-purple-800"
                   )}>
                     <div className="flex items-center space-x-2">
                       {match.winner_id === match.player1_id && (
-                        <Trophy className="w-3 h-3 text-yellow-500" />
+                        <Trophy className="w-4 h-4 text-yellow-500" />
                       )}
                       <span className={clsx(
-                        "text-sm",
-                        match.winner_id === match.player1_id ? "text-white font-medium" : "text-gray-300"
+                        "font-medium",
+                        match.winner_id === match.player1_id ? "text-white" : "text-gray-300"
                       )}>
                         {getPlayerName(match.player1_id)}
                       </span>
                     </div>
-                    <span className="text-sm font-medium">
+                    <span className="text-lg font-medium">
                       {match.player1_score}
                     </span>
                   </div>
@@ -333,21 +329,21 @@ export default function BracketDisplay({ matches, players, raceTo, onUpdateMatch
 
                   {/* Player 2 */}
                   <div className={clsx(
-                    "px-3 py-1.5 flex justify-between items-center",
+                    "px-4 py-2 flex justify-between items-center",
                     match.winner_id === match.player2_id && "bg-purple-800"
                   )}>
                     <div className="flex items-center space-x-2">
                       {match.winner_id === match.player2_id && (
-                        <Trophy className="w-3 h-3 text-yellow-500" />
+                        <Trophy className="w-4 h-4 text-yellow-500" />
                       )}
                       <span className={clsx(
-                        "text-sm",
-                        match.winner_id === match.player2_id ? "text-white font-medium" : "text-gray-300"
+                        "font-medium",
+                        match.winner_id === match.player2_id ? "text-white" : "text-gray-300"
                       )}>
                         {getPlayerName(match.player2_id)}
                       </span>
                     </div>
-                    <span className="text-sm font-medium">
+                    <span className="text-lg font-medium">
                       {match.player2_score}
                     </span>
                   </div>
