@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Trophy, Edit2, Pause, RotateCcw, Save } from 'lucide-react';
+import { Trophy, Save } from 'lucide-react';
 import clsx from 'clsx';
 
 interface Match {
@@ -183,11 +183,15 @@ export default function BracketDisplay({ matches, players, raceTo, onUpdateMatch
       matches: matches.sort((a, b) => a.match_number - b.match_number)
     }));
 
-  // Calculate dimensions
+  // Calculate dimensions and spacing
   const matchWidth = 240;
   const matchHeight = 80;
   const horizontalGap = 100;
   const verticalGap = 40;
+
+  // Calculate total height needed for the bracket
+  const maxMatchesInRound = Math.max(...rounds.map(r => r.matches.length));
+  const totalHeight = maxMatchesInRound * matchHeight + (maxMatchesInRound - 1) * verticalGap;
 
   const handleMatchClick = (match: Match) => {
     if (onUpdateMatch) {
@@ -200,14 +204,18 @@ export default function BracketDisplay({ matches, players, raceTo, onUpdateMatch
       <div className="relative flex" style={{ gap: `${horizontalGap}px` }}>
         {rounds.map((round, roundIndex) => {
           const matchCount = round.matches.length;
-          const totalHeight = matchCount * matchHeight + (matchCount - 1) * verticalGap;
+          const roundHeight = totalHeight;
+          const matchSpacing = roundHeight / matchCount;
           const nextRoundMatchCount = rounds[roundIndex + 1]?.matches.length || 0;
 
           return (
             <div 
               key={round.round}
               className="relative flex flex-col"
-              style={{ gap: `${verticalGap}px` }}
+              style={{ 
+                gap: `${matchSpacing - matchHeight}px`,
+                height: roundHeight
+              }}
             >
               {/* Round Label */}
               <div className="absolute -top-8 left-0 text-sm font-medium text-gray-400">
@@ -221,40 +229,27 @@ export default function BracketDisplay({ matches, players, raceTo, onUpdateMatch
                 <svg
                   className="absolute -right-[101px] top-0 h-full w-[102px]"
                   style={{
-                    height: totalHeight + verticalGap,
+                    height: roundHeight,
                     pointerEvents: 'none'
                   }}
                 >
                   {round.matches.map((match, matchIndex) => {
-                    if (matchIndex % 2 === 0) {
-                      const y1 = matchIndex * (matchHeight + verticalGap) + matchHeight / 2;
-                      const y2 = (matchIndex + 1) * (matchHeight + verticalGap) + matchHeight / 2;
-                      const nextY = (matchIndex / 2) * ((totalHeight + verticalGap) / (nextRoundMatchCount)) + matchHeight / 2;
+                    const y1 = matchIndex * matchSpacing + matchHeight / 2;
+                    const nextMatchIndex = Math.floor(matchIndex / 2);
+                    const y2 = nextMatchIndex * (roundHeight / nextRoundMatchCount) + matchHeight / 2;
 
-                      return (
-                        <g key={`connector-${match.id}`}>
-                          {/* Vertical line connecting the two matches */}
-                          <line
-                            x1="0"
-                            y1={y1}
-                            x2="0"
-                            y2={y2}
-                            stroke="#4B5563"
-                            strokeWidth="2"
-                          />
-                          {/* Horizontal line to next round */}
-                          <line
-                            x1="0"
-                            y1={(y1 + y2) / 2}
-                            x2={horizontalGap}
-                            y2={(y1 + y2) / 2}
-                            stroke="#4B5563"
-                            strokeWidth="2"
-                          />
-                        </g>
-                      );
-                    }
-                    return null;
+                    return (
+                      <g key={`connector-${match.id}`}>
+                        <line
+                          x1="0"
+                          y1={y1}
+                          x2={horizontalGap}
+                          y2={y2}
+                          stroke="#4B5563"
+                          strokeWidth="2"
+                        />
+                      </g>
+                    );
                   })}
                 </svg>
               )}
@@ -266,9 +261,12 @@ export default function BracketDisplay({ matches, players, raceTo, onUpdateMatch
                   onClick={() => handleMatchClick(match)}
                   className={clsx(
                     "w-[240px] bg-gray-800 rounded-lg overflow-hidden shadow-lg cursor-pointer transition-transform hover:scale-105",
-                    match.status === 'in_progress' && "ring-2 ring-purple-500",
-                    match.status === 'completed' && match.winner_id && "ring-2 ring-green-500"
+                    match.status === 'in_progress' && "ring-2 ring-green-500",
+                    match.status === 'completed' && match.winner_id && "ring-2 ring-gray-500"
                   )}
+                  style={{
+                    marginTop: matchIndex === 0 ? matchSpacing * matchIndex : 0
+                  }}
                 >
                   {/* Match Header */}
                   <div className="px-4 py-2 bg-gray-900/50 flex justify-between items-center">
@@ -277,7 +275,7 @@ export default function BracketDisplay({ matches, players, raceTo, onUpdateMatch
                     </span>
                     <div className="flex items-center space-x-2">
                       {match.status === 'in_progress' && (
-                        <span className="px-2 py-0.5 text-xs bg-purple-600 text-white rounded-full">
+                        <span className="px-2 py-0.5 text-xs bg-green-600 text-white rounded-full">
                           In Progress
                         </span>
                       )}
