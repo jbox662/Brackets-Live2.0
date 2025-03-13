@@ -254,15 +254,34 @@ export default function TournamentBracket() {
     }
   };
 
+  const isPowerOfTwo = (n: number): boolean => {
+    return n && (n & (n - 1)) === 0;
+  };
+
+  const getNextPowerOfTwo = (n: number): number => {
+    let power = 1;
+    while (power < n) {
+      power *= 2;
+    }
+    return power;
+  };
+
   const handleCreateBracket = async () => {
     try {
       if (!tournament || players.length < 2) {
         throw new Error('Not enough players to create a bracket');
       }
 
+      if (!isPowerOfTwo(players.length)) {
+        const nextSize = getNextPowerOfTwo(players.length);
+        const prevSize = nextSize / 2;
+        throw new Error(
+          `Player count must be a power of 2. Please adjust to either ${prevSize} or ${nextSize} players.`
+        );
+      }
+
       // Calculate optimal bracket size
-      const sizes = [2, 4, 8, 16, 32, 64];
-      const optimalSize = sizes.find(size => size >= players.length) || sizes[sizes.length - 1];
+      const optimalSize = getNextPowerOfTwo(players.length);
       
       const { data: bracketData, error: bracketError } = await supabase
         .from('tournament_brackets')
@@ -303,6 +322,48 @@ export default function TournamentBracket() {
         });
       }
 
+      // For double elimination, create losers bracket matches
+      if (bracketConfig.format === 'Double Elimination') {
+        const numRounds = Math.log2(optimalSize);
+        let currentRound = 2;
+        let matchNumber = numFirstRoundMatches + 1;
+
+        while (currentRound <= numRounds) {
+          const numMatches = numFirstRoundMatches / Math.pow(2, currentRound - 1);
+          for (let i = 0; i < numMatches; i++) {
+            matches.push({
+              bracket_id: bracketData.id,
+              round: currentRound,
+              match_number: matchNumber++,
+              player1_id: null,
+              player2_id: null,
+              table_number: (i % parseInt(bracketConfig.tablesPerBracket)) + 1
+            });
+          }
+          currentRound++;
+        }
+
+        // Add grand finals matches
+        matches.push({
+          bracket_id: bracketData.id,
+          round: currentRound,
+          match_number: matchNumber++,
+          player1_id: null,
+          player2_id: null,
+          table_number: 1
+        });
+
+        // Add potential second finals match for true double elimination
+        matches.push({
+          bracket_id: bracketData.id,
+          round: currentRound + 1,
+          match_number: matchNumber,
+          player1_id: null,
+          player2_id: null,
+          table_number: 1
+        });
+      }
+
       const { error: matchesError } = await supabase
         .from('tournament_matches')
         .insert(matches);
@@ -314,7 +375,7 @@ export default function TournamentBracket() {
       loadTournamentData();
     } catch (error) {
       console.error('Error creating bracket:', error);
-      toast.error('Failed to create bracket');
+      toast.error(error instanceof Error ? error.message : 'Failed to create bracket');
     }
   };
 
