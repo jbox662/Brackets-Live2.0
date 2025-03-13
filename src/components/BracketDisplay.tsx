@@ -11,7 +11,7 @@ interface Match {
   player1_score: number;
   player2_score: number;
   winner_id: string | null;
-  table_number: number;
+  table_number: number | null;
   status: 'pending' | 'in_progress' | 'completed';
 }
 
@@ -75,7 +75,6 @@ function EditModal({ match, players, raceTo, onClose, onSave }: EditModalProps) 
         <h3 className="text-xl font-bold mb-4">Edit Match</h3>
         
         <div className="space-y-4">
-          {/* Player 1 Score */}
           <div>
             <label className="block text-sm font-medium mb-1">
               {getPlayerName(match.player1_id)}
@@ -90,7 +89,6 @@ function EditModal({ match, players, raceTo, onClose, onSave }: EditModalProps) 
             />
           </div>
 
-          {/* Player 2 Score */}
           <div>
             <label className="block text-sm font-medium mb-1">
               {getPlayerName(match.player2_id)}
@@ -105,7 +103,6 @@ function EditModal({ match, players, raceTo, onClose, onSave }: EditModalProps) 
             />
           </div>
 
-          {/* Table Number */}
           <div>
             <label className="block text-sm font-medium mb-1">
               Table Number
@@ -113,13 +110,13 @@ function EditModal({ match, players, raceTo, onClose, onSave }: EditModalProps) 
             <input
               type="number"
               min="1"
-              value={table}
-              onChange={(e) => setTable(parseInt(e.target.value) || 1)}
+              value={table || ''}
+              onChange={(e) => setTable(parseInt(e.target.value) || null)}
               className="w-full p-2 rounded bg-gray-700 border border-gray-600"
+              placeholder="Assign table number"
             />
           </div>
 
-          {/* Match Status */}
           <div>
             <label className="block text-sm font-medium mb-1">
               Status
@@ -135,7 +132,6 @@ function EditModal({ match, players, raceTo, onClose, onSave }: EditModalProps) 
             </select>
           </div>
 
-          {/* Actions */}
           <div className="flex gap-2 pt-4">
             <button
               onClick={onClose}
@@ -184,14 +180,14 @@ export default function BracketDisplay({ matches, players, raceTo, onUpdateMatch
     }));
 
   // Calculate dimensions and spacing
-  const matchWidth = 240;
-  const matchHeight = 80;
-  const horizontalGap = 100;
+  const matchWidth = 200;
+  const matchHeight = 64;
+  const horizontalGap = 120;
   const verticalGap = 40;
 
   // Calculate total height needed for the bracket
   const maxMatchesInRound = Math.max(...rounds.map(r => r.matches.length));
-  const totalHeight = maxMatchesInRound * matchHeight + (maxMatchesInRound - 1) * verticalGap;
+  const totalHeight = maxMatchesInRound * (matchHeight + verticalGap);
 
   const handleMatchClick = (match: Match) => {
     if (onUpdateMatch) {
@@ -201,24 +197,24 @@ export default function BracketDisplay({ matches, players, raceTo, onUpdateMatch
 
   return (
     <div className="w-full overflow-x-auto bg-gray-900 p-8">
-      <div className="relative flex" style={{ gap: `${horizontalGap}px` }}>
+      <div className="relative flex justify-center min-w-fit" style={{ gap: `${horizontalGap}px` }}>
         {rounds.map((round, roundIndex) => {
           const matchCount = round.matches.length;
           const roundHeight = totalHeight;
           const matchSpacing = roundHeight / matchCount;
-          const nextRoundMatchCount = rounds[roundIndex + 1]?.matches.length || 0;
+          const nextRoundMatchCount = rounds[roundIndex + 1]?.matches.length || 1;
 
           return (
             <div 
               key={round.round}
-              className="relative flex flex-col"
+              className="relative flex flex-col items-center"
               style={{ 
-                gap: `${matchSpacing - matchHeight}px`,
-                height: roundHeight
+                gap: `${verticalGap}px`,
+                minHeight: roundHeight
               }}
             >
               {/* Round Label */}
-              <div className="absolute -top-8 left-0 text-sm font-medium text-gray-400">
+              <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 text-sm font-medium text-gray-400">
                 {round.round === rounds.length ? 'Final' :
                  round.round === rounds.length - 1 ? 'Semifinals' :
                  `Round ${round.round}`}
@@ -227,29 +223,64 @@ export default function BracketDisplay({ matches, players, raceTo, onUpdateMatch
               {/* Connector Lines */}
               {roundIndex < rounds.length - 1 && (
                 <svg
-                  className="absolute -right-[101px] top-0 h-full w-[102px]"
+                  className="absolute -right-[121px] top-0 w-[122px]"
                   style={{
                     height: roundHeight,
                     pointerEvents: 'none'
                   }}
                 >
                   {round.matches.map((match, matchIndex) => {
-                    const y1 = matchIndex * matchSpacing + matchHeight / 2;
-                    const nextMatchIndex = Math.floor(matchIndex / 2);
-                    const y2 = nextMatchIndex * (roundHeight / nextRoundMatchCount) + matchHeight / 2;
+                    if (matchIndex % 2 === 0) {
+                      const match1Y = matchIndex * matchSpacing + matchHeight / 2;
+                      const match2Y = (matchIndex + 1) * matchSpacing + matchHeight / 2;
+                      const nextMatchIndex = Math.floor(matchIndex / 2);
+                      const nextMatchY = nextMatchIndex * (roundHeight / nextRoundMatchCount) + matchHeight / 2;
 
-                    return (
-                      <g key={`connector-${match.id}`}>
-                        <line
-                          x1="0"
-                          y1={y1}
-                          x2={horizontalGap}
-                          y2={y2}
-                          stroke="#4B5563"
-                          strokeWidth="2"
-                        />
-                      </g>
-                    );
+                      return (
+                        <g key={`connector-${match.id}`}>
+                          {/* Horizontal lines from matches */}
+                          <line
+                            x1="0"
+                            y1={match1Y}
+                            x2={horizontalGap / 2}
+                            y2={match1Y}
+                            stroke="#4B5563"
+                            strokeWidth="2"
+                          />
+                          {matchIndex + 1 < round.matches.length && (
+                            <line
+                              x1="0"
+                              y1={match2Y}
+                              x2={horizontalGap / 2}
+                              y2={match2Y}
+                              stroke="#4B5563"
+                              strokeWidth="2"
+                            />
+                          )}
+                          {/* Vertical connector */}
+                          {matchIndex + 1 < round.matches.length && (
+                            <line
+                              x1={horizontalGap / 2}
+                              y1={match1Y}
+                              x2={horizontalGap / 2}
+                              y2={match2Y}
+                              stroke="#4B5563"
+                              strokeWidth="2"
+                            />
+                          )}
+                          {/* Line to next match */}
+                          <line
+                            x1={horizontalGap / 2}
+                            y1={(match1Y + (matchIndex + 1 < round.matches.length ? match2Y : match1Y)) / 2}
+                            x2={horizontalGap}
+                            y2={nextMatchY}
+                            stroke="#4B5563"
+                            strokeWidth="2"
+                          />
+                        </g>
+                      );
+                    }
+                    return null;
                   })}
                 </svg>
               )}
@@ -260,74 +291,63 @@ export default function BracketDisplay({ matches, players, raceTo, onUpdateMatch
                   key={match.id}
                   onClick={() => handleMatchClick(match)}
                   className={clsx(
-                    "w-[240px] bg-gray-800 rounded-lg overflow-hidden shadow-lg cursor-pointer transition-transform hover:scale-105",
-                    match.status === 'in_progress' && "ring-2 ring-green-500",
-                    match.status === 'completed' && match.winner_id && "ring-2 ring-gray-500"
+                    "w-[200px] bg-purple-900/80 rounded overflow-hidden shadow-lg cursor-pointer transition-transform hover:scale-105",
+                    match.status === 'in_progress' && "ring-1 ring-green-500",
+                    match.status === 'completed' && match.winner_id && "ring-1 ring-gray-500"
                   )}
                   style={{
-                    marginTop: matchIndex === 0 ? matchSpacing * matchIndex : 0
+                    marginTop: matchIndex === 0 ? matchSpacing / 2 : 0
                   }}
                 >
                   {/* Match Header */}
-                  <div className="px-4 py-2 bg-gray-900/50 flex justify-between items-center">
-                    <span className="text-xs text-gray-400">
-                      Match {match.match_number}
-                    </span>
-                    <div className="flex items-center space-x-2">
-                      {match.status === 'in_progress' && (
-                        <span className="px-2 py-0.5 text-xs bg-green-600 text-white rounded-full">
-                          In Progress
-                        </span>
-                      )}
-                      {match.table_number && (
-                        <span className="text-xs text-gray-400">
-                          Table {match.table_number}
-                        </span>
-                      )}
-                    </div>
+                  <div className="px-3 py-1 bg-black/20 flex justify-between items-center text-xs text-gray-300">
+                    <span>Match {match.match_number}</span>
+                    {match.table_number && (
+                      <span>Table {match.table_number}</span>
+                    )}
                   </div>
 
                   {/* Player 1 */}
                   <div className={clsx(
-                    "px-4 py-2 flex justify-between items-center",
-                    match.winner_id === match.player1_id && "bg-purple-900/30"
+                    "px-3 py-1.5 flex justify-between items-center",
+                    match.winner_id === match.player1_id && "bg-purple-800"
                   )}>
                     <div className="flex items-center space-x-2">
                       {match.winner_id === match.player1_id && (
-                        <Trophy className="w-4 h-4 text-yellow-500" />
+                        <Trophy className="w-3 h-3 text-yellow-500" />
                       )}
                       <span className={clsx(
-                        "font-medium",
-                        match.winner_id === match.player1_id ? "text-white" : "text-gray-400"
+                        "text-sm",
+                        match.winner_id === match.player1_id ? "text-white font-medium" : "text-gray-300"
                       )}>
                         {getPlayerName(match.player1_id)}
                       </span>
                     </div>
-                    <span className="text-lg font-semibold">
+                    <span className="text-sm font-medium">
                       {match.player1_score}
                     </span>
                   </div>
 
                   {/* Divider */}
-                  <div className="h-px bg-gray-700" />
+                  <div className="h-px bg-black/20" />
 
                   {/* Player 2 */}
                   <div className={clsx(
-                    "px-4 py-2 flex justify-between items-center",
-                    match.winner_id === match.player2_id && "bg-purple-900/30"
+                    "px-3 py-1.5 flex justify-between items-center",
+                    match.winner_id === match.player2_id && "bg-purple-800"
                   )}>
                     <div className="flex items-center space-x-2">
                       {match.winner_id === match.player2_id && (
-                        <Trophy className="w-4 h-4 text-yellow-500" />
+                        <Trophy className="w-3 h-3 text-yellow-500" />
                       )}
                       <span className={clsx(
-                        "font-medium",
-                        match.winner_id === match.player2_id ? "text-white" : "text-gray-400"
+                        "text-sm",
+                        match.winner_id === match.player2_id ? "text-white font-medium" : "text-gray-300"
                       )}>
                         {getPlayerName(match.player2_id)}
                       </span>
                     </div>
-                    <span className="text-lg font-semibold">
+                    <span className="text-sm font-medium">
                       {match.player2_score}
                     </span>
                   </div>
